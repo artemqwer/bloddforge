@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "AyuGram",
+    "slug": "ayu",
+    "scheme": "ayugram",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0E1621",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ayugram.ios"
+    },
+    "android": {
+      "package": "com.ayugram.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0E1621",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      "expo-secure-store"
+    ]
+  }
+}

@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -13,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { onChatEvent } from '../../tg/client';
 import { loadDialogs, previewOf, type DialogItem } from '../../tg/dialogs';
+import { inFolder, loadFolders, type Folder } from '../../tg/folders';
 import { isFullGhost, useSettings } from '../../tg/settings';
 import { Avatar } from '../../ui/Avatar';
 import { formatDay } from '../../ui/format';
@@ -22,13 +24,16 @@ export default function Chats() {
   const insets = useSafeAreaInsets();
   const settings = useSettings();
   const [dialogs, setDialogs] = useState<DialogItem[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [activeFolder, setActiveFolder] = useState<number>(-1); // -1 = All chats
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
-      const items = await loadDialogs();
+      const [items, f] = await Promise.all([loadDialogs(), loadFolders()]);
       setDialogs(items);
+      setFolders(f);
     } catch (err) {
       console.warn(err);
     } finally {
@@ -36,6 +41,12 @@ export default function Chats() {
       setRefreshing(false);
     }
   }, []);
+
+  const visibleDialogs = useMemo(() => {
+    if (activeFolder < 0) return dialogs;
+    const folder = folders.find((f) => f.id === activeFolder);
+    return folder ? dialogs.filter((d) => inFolder(folder, d)) : dialogs;
+  }, [dialogs, folders, activeFolder]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -84,11 +95,27 @@ export default function Chats() {
         </Text>
       </View>
 
+      {folders.length > 0 && (
+        <View style={styles.folderStrip}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.folderRow}>
+            <FolderTab label="Усі чати" active={activeFolder < 0} onPress={() => setActiveFolder(-1)} />
+            {folders.map((f) => (
+              <FolderTab
+                key={f.id}
+                label={f.title}
+                active={activeFolder === f.id}
+                onPress={() => setActiveFolder(f.id)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {loading ? (
         <ActivityIndicator color={theme.accent} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
-          data={dialogs}
+          data={visibleDialogs}
           keyExtractor={(d) => d.peer}
           refreshControl={
             <RefreshControl
@@ -109,6 +136,17 @@ export default function Chats() {
         />
       )}
     </View>
+  );
+}
+
+function FolderTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={styles.folderTab}>
+      <Text style={[styles.folderText, active && styles.folderTextActive]} numberOfLines={1}>
+        {label}
+      </Text>
+      {active && <View style={styles.folderUnderline} />}
+    </Pressable>
   );
 }
 
@@ -160,6 +198,23 @@ const styles = StyleSheet.create({
   headerIcon: { fontSize: 20 },
   ghostBar: { paddingVertical: 6, paddingHorizontal: 16 },
   ghostText: { color: '#fff', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  folderStrip: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.separator,
+  },
+  folderRow: { paddingHorizontal: 8 },
+  folderTab: { paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center' },
+  folderText: { color: theme.textDim, fontSize: 14, fontWeight: '600' },
+  folderTextActive: { color: theme.accent },
+  folderUnderline: {
+    position: 'absolute',
+    bottom: 0,
+    height: 2,
+    left: 12,
+    right: 12,
+    backgroundColor: theme.accent,
+    borderRadius: 1,
+  },
   row: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 9, gap: 12 },
   rowBody: { flex: 1, justifyContent: 'center' },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

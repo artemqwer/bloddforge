@@ -71,6 +71,7 @@ export default function Chat() {
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const loadingMore = useRef(false);
@@ -378,6 +379,7 @@ export default function Chat() {
                 onLongPress={setActionMsg}
                 onReact={react}
                 onOpenMedia={openMedia}
+                onOpenPhoto={setViewerUri}
               />
             )
           }
@@ -451,6 +453,12 @@ export default function Chat() {
       />
 
       <ForwardPicker msg={forwardMsg} onClose={() => setForwardMsg(null)} onPick={doForward} />
+
+      <Modal visible={!!viewerUri} transparent animationType="fade" onRequestClose={() => setViewerUri(null)}>
+        <Pressable style={styles.viewer} onPress={() => setViewerUri(null)}>
+          {viewerUri && <Image source={{ uri: viewerUri }} style={styles.viewerImage} resizeMode="contain" />}
+        </Pressable>
+      </Modal>
 
       <ActionSheet
         msg={actionMsg}
@@ -620,6 +628,7 @@ type BubbleProps = {
   onLongPress: (m: ChatMessage) => void;
   onReact: (m: ChatMessage, e: string) => void;
   onOpenMedia: (m: ChatMessage) => void;
+  onOpenPhoto: (uri: string) => void;
 };
 
 const Bubble = memo(function Bubble({
@@ -631,6 +640,7 @@ const Bubble = memo(function Bubble({
   onLongPress,
   onReact,
   onOpenMedia,
+  onOpenPhoto,
 }: BubbleProps) {
   const out = msg.out === 1;
   const isDeleted = msg.deleted === 1;
@@ -693,7 +703,9 @@ const Bubble = memo(function Bubble({
         </View>
       )}
       {photo ? (
-        <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" />
+        <Pressable onPress={() => onOpenPhoto(photo)}>
+          <Image source={{ uri: photo }} style={styles.photo} resizeMode="cover" />
+        </Pressable>
       ) : msg.media === 'photo' && manualPhoto && !photoAsked ? (
         <Pressable style={styles.photoStub} onPress={loadPhotoNow}>
           <Text style={styles.photoStubText}>🖼 Завантажити фото</Text>
@@ -912,4 +924,6 @@ const styles = StyleSheet.create({
     borderTopColor: theme.separator,
   },
   pickerName: { color: theme.text, fontSize: 15 },
+  viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' },
+  viewerImage: { width: '100%', height: '100%' },
 });

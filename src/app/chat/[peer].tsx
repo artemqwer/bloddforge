@@ -15,23 +15,33 @@ import {
   View,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
+import { AudioModule, RecordingPresets, useAudioRecorder } from 'expo-audio';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getEdits } from '../../tg/archive';
 import {
   deleteOwnMessages,
   editOwnMessage,
+  forwardTo,
   markRead,
   onChatEvent,
   reactTo,
+  sendFileFromUri,
   sendPhoto,
   sendText,
   sendTyping,
+  sendVoice,
 } from '../../tg/client';
 import { mediaLabel } from '../../tg/convert';
-import { entityFor } from '../../tg/dialogs';
-import { fromNewExport as fromNew, loadHistory, loadPhoto, type ChatMessage } from '../../tg/history';
-import { pickPhoto } from '../../tg/media';
+import { entityFor, loadDialogs, type DialogItem } from '../../tg/dialogs';
+import {
+  downloadAndShare,
+  fromNewExport as fromNew,
+  loadHistory,
+  loadPhoto,
+  type ChatMessage,
+} from '../../tg/history';
+import { pickDocument, pickPhoto, pickVideo } from '../../tg/media';
 import { useSettings } from '../../tg/settings';
 import { dateSeparator, formatTime, sameDay } from '../../ui/format';
 import { Glass } from '../../ui/Glass';
@@ -59,6 +69,10 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const [compose, setCompose] = useState<Compose>(null);
   const [actionMsg, setActionMsg] = useState<ChatMessage | null>(null);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
+  const [recording, setRecording] = useState(false);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const loadingMore = useRef(false);
 
   const upsert = useCallback((incoming: ChatMessage[]) => {
@@ -149,18 +163,116 @@ export default function Chat() {
     }
   }
 
+  const replyId = () => (compose?.mode === 'reply' ? compose.id : undefined);
+
   async function attachPhoto() {
+    setAttachOpen(false);
     try {
       const uri = await pickPhoto();
       if (!uri) return;
       setSending(true);
-      await sendPhoto(entityFor(peer), uri, text.trim(), compose?.mode === 'reply' ? compose.id : undefined);
+      await sendPhoto(entityFor(peer), uri, text.trim(), replyId());
       setText('');
       setCompose(null);
     } catch (err: any) {
       Alert.alert('Фото не надіслано', String(err?.message ?? err));
     } finally {
       setSending(false);
+    }
+  }
+
+  async function attachVideo() {
+    setAttachOpen(false);
+    try {
+      const v = await pickVideo();
+      if (!v) return;
+      setSending(true);
+      await sendFileFromUri(entityFor(peer), v.uri, {
+        caption: text.trim(),
+        replyTo: replyId(),
+        name: v.name,
+        mimeType: v.mimeType,
+      });
+      setText('');
+      setCompose(null);
+    } catch (err: any) {
+      Alert.alert('Відео не надіслано', String(err?.message ?? err));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function attachDocument() {
+    setAttachOpen(false);
+    try {
+      const d = await pickDocument();
+      if (!d) return;
+      setSending(true);
+      await sendFileFromUri(entityFor(peer), d.uri, {
+        caption: text.trim(),
+        replyTo: replyId(),
+        name: d.name,
+        mimeType: d.mimeType,
+        forceDocument: true,
+      });
+      setText('');
+      setCompose(null);
+    } catch (err: any) {
+      Alert.alert('Файл не надіслано', String(err?.message ?? err));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function toggleRecord() {
+    if (recording) {
+      try {
+        await recorder.stop();
+        const uri = recorder.uri;
+        setRecording(false);
+        if (uri) {
+          setSending(true);
+          await sendVoice(entityFor(peer), uri, replyId());
+          setCompose(null);
+        }
+      } catch (err: any) {
+        Alert.alert('Голосове не надіслано', String(err?.message ?? err));
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+    try {
+      const perm = await AudioModule.requestRecordingPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Немає доступу', 'Дозвольте доступ до мікрофона.');
+        return;
+      }
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setRecording(true);
+    } catch (err: any) {
+      Alert.alert('Не вдалося почати запис', String(err?.message ?? err));
+    }
+  }
+
+  async function doForward(target: DialogItem) {
+    const msg = forwardMsg;
+    setForwardMsg(null);
+    if (!msg) return;
+    try {
+      await forwardTo(entityFor(target.peer), entityFor(peer), [msg.id]);
+      Alert.alert('Переслано', `Повідомлення переслано в «${target.title}».`);
+    } catch (err: any) {
+      Alert.alert('Не вдалося переслати', String(err?.message ?? err));
+    }
+  }
+
+  async function openMedia(msg: ChatMessage) {
+    try {
+      await downloadAndShare(peer, msg.id, mediaFilename(msg));
+    } catch (err: any) {
+      Alert.alert('Не вдалося відкрити', String(err?.message ?? err));
     }
   }
 
@@ -265,6 +377,7 @@ export default function Chat() {
                 replyText={item.msg.reply_to ? textById.get(item.msg.reply_to) : undefined}
                 onLongPress={setActionMsg}
                 onReact={react}
+                onOpenMedia={openMedia}
               />
             )
           }
@@ -302,21 +415,42 @@ export default function Chat() {
       )}
 
       <Glass style={[styles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
-        <Pressable style={styles.attach} onPress={attachPhoto} disabled={sending} hitSlop={8}>
+        <Pressable style={styles.attach} onPress={() => setAttachOpen(true)} disabled={sending} hitSlop={8}>
           <Text style={styles.attachIcon}>📎</Text>
         </Pressable>
         <TextInput
           style={styles.input}
           value={text}
           onChangeText={onChangeText}
-          placeholder="Повідомлення…"
-          placeholderTextColor={theme.textFaint}
+          placeholder={recording ? 'Запис… натисніть ⏹ щоб надіслати' : 'Повідомлення…'}
+          placeholderTextColor={recording ? theme.danger : theme.textFaint}
+          editable={!recording}
           multiline
         />
-        <Pressable style={styles.send} onPress={doSend} disabled={sending}>
-          <Text style={styles.sendIcon}>{sending ? '…' : compose?.mode === 'edit' ? '✓' : '➤'}</Text>
-        </Pressable>
+        {text.trim() || compose?.mode === 'edit' ? (
+          <Pressable style={styles.send} onPress={doSend} disabled={sending}>
+            <Text style={styles.sendIcon}>{sending ? '…' : compose?.mode === 'edit' ? '✓' : '➤'}</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={[styles.send, recording && { backgroundColor: theme.danger }]}
+            onPress={toggleRecord}
+            disabled={sending}
+          >
+            <Text style={styles.sendIcon}>{recording ? '⏹' : '🎤'}</Text>
+          </Pressable>
+        )}
       </Glass>
+
+      <AttachMenu
+        open={attachOpen}
+        onClose={() => setAttachOpen(false)}
+        onPhoto={attachPhoto}
+        onVideo={attachVideo}
+        onFile={attachDocument}
+      />
+
+      <ForwardPicker msg={forwardMsg} onClose={() => setForwardMsg(null)} onPick={doForward} />
 
       <ActionSheet
         msg={actionMsg}
@@ -325,6 +459,10 @@ export default function Chat() {
         onReply={startReply}
         onEdit={startEdit}
         onDelete={removeMessage}
+        onForward={(m) => {
+          setActionMsg(null);
+          setForwardMsg(m);
+        }}
         onCopy={(m) => {
           Clipboard.setStringAsync(m.text);
           setActionMsg(null);
@@ -341,6 +479,7 @@ function ActionSheet({
   onReply,
   onEdit,
   onDelete,
+  onForward,
   onCopy,
 }: {
   msg: ChatMessage | null;
@@ -349,6 +488,7 @@ function ActionSheet({
   onReply: (m: ChatMessage) => void;
   onEdit: (m: ChatMessage) => void;
   onDelete: (m: ChatMessage) => void;
+  onForward: (m: ChatMessage) => void;
   onCopy: (m: ChatMessage) => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -367,12 +507,89 @@ function ActionSheet({
           </View>
           {msg.text ? <SheetAction label="Копіювати текст" icon="📋" onPress={() => onCopy(msg)} /> : null}
           <SheetAction label="Відповісти" icon="↩️" onPress={() => onReply(msg)} />
+          <SheetAction label="Переслати" icon="➡️" onPress={() => onForward(msg)} />
           {own && !msg.media && <SheetAction label="Редагувати" icon="✏️" onPress={() => onEdit(msg)} />}
           {own && <SheetAction label="Видалити" icon="🗑" danger onPress={() => onDelete(msg)} />}
         </View>
       </Pressable>
     </Modal>
   );
+}
+
+function AttachMenu({
+  open,
+  onClose,
+  onPhoto,
+  onVideo,
+  onFile,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPhoto: () => void;
+  onVideo: () => void;
+  onFile: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  if (!open) return null;
+  return (
+    <Modal transparent animationType="fade" visible onRequestClose={onClose}>
+      <Pressable style={styles.sheetBackdrop} onPress={onClose}>
+        <View style={[styles.sheet, { paddingBottom: insets.bottom + 10 }]}>
+          <SheetAction label="Фото" icon="🖼" onPress={onPhoto} />
+          <SheetAction label="Відео" icon="🎬" onPress={onVideo} />
+          <SheetAction label="Файл" icon="📄" onPress={onFile} />
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function ForwardPicker({
+  msg,
+  onClose,
+  onPick,
+}: {
+  msg: ChatMessage | null;
+  onClose: () => void;
+  onPick: (d: DialogItem) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [dialogs, setDialogs] = useState<DialogItem[]>([]);
+  useEffect(() => {
+    if (msg) loadDialogs().then(setDialogs).catch(() => {});
+  }, [msg]);
+  if (!msg) return null;
+  return (
+    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
+      <View style={styles.pickerWrap}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <View style={[styles.picker, { paddingBottom: insets.bottom + 10 }]}>
+          <Text style={styles.pickerTitle}>Переслати в…</Text>
+          <FlatList
+            data={dialogs}
+            keyExtractor={(d) => d.peer}
+            style={{ maxHeight: 420 }}
+            renderItem={({ item }) => (
+              <Pressable style={styles.pickerRow} onPress={() => onPick(item)}>
+                <Text style={styles.pickerName} numberOfLines={1}>
+                  {item.title}
+                </Text>
+              </Pressable>
+            )}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function mediaFilename(msg: ChatMessage): string {
+  const kind = msg.media?.split(':')[0];
+  const extra = msg.media?.split(':').slice(1).join(':').trim();
+  if ((kind === 'file' || kind === 'audio') && extra) return extra;
+  const ext =
+    kind === 'video' || kind === 'round' ? 'mp4' : kind === 'voice' ? 'ogg' : kind === 'gif' ? 'mp4' : 'dat';
+  return `${kind ?? 'media'}_${msg.id}.${ext}`;
 }
 
 function SheetAction({
@@ -402,6 +619,7 @@ type BubbleProps = {
   replyText?: string;
   onLongPress: (m: ChatMessage) => void;
   onReact: (m: ChatMessage, e: string) => void;
+  onOpenMedia: (m: ChatMessage) => void;
 };
 
 const Bubble = memo(function Bubble({
@@ -412,6 +630,7 @@ const Bubble = memo(function Bubble({
   replyText,
   onLongPress,
   onReact,
+  onOpenMedia,
 }: BubbleProps) {
   const out = msg.out === 1;
   const isDeleted = msg.deleted === 1;
@@ -480,7 +699,9 @@ const Bubble = memo(function Bubble({
           <Text style={styles.photoStubText}>🖼 Завантажити фото</Text>
         </Pressable>
       ) : media && msg.media !== 'photo' ? (
-        <Text style={styles.media}>{media}</Text>
+        <Pressable onPress={() => onOpenMedia(msg)}>
+          <Text style={styles.media}>{media}  ⬇️</Text>
+        </Pressable>
       ) : null}
       {msg.text ? <Text style={styles.text}>{msg.text}</Text> : null}
       {reactions.length > 0 && (
@@ -670,4 +891,25 @@ const styles = StyleSheet.create({
   },
   sheetIcon: { fontSize: 18, width: 24, textAlign: 'center' },
   sheetLabel: { color: theme.text, fontSize: 16 },
+  pickerWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
+  picker: {
+    backgroundColor: theme.bgElevated,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingTop: 12,
+  },
+  pickerTitle: {
+    color: theme.text,
+    fontSize: 16,
+    fontWeight: '700',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  pickerRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.separator,
+  },
+  pickerName: { color: theme.text, fontSize: 15 },
 });

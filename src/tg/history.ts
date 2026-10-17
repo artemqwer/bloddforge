@@ -83,6 +83,29 @@ export async function loadHistory(
   return { messages: result, done: live.length < PAGE };
 }
 
+/** Downloads a message's media to a cache file and opens the iOS share sheet. */
+export async function downloadAndShare(peer: string, id: number, filename: string): Promise<void> {
+  const raw = rawMessages.get(rawKey(peer, id));
+  if (!raw || !raw.media) throw new Error('Медіа недоступне (відкрийте чат і прокрутіть до повідомлення)');
+  const [{ File, Paths }, Sharing] = await Promise.all([
+    import('expo-file-system'),
+    import('expo-sharing'),
+  ]);
+  const buf = await getClient().downloadMedia(raw, {});
+  if (!buf || typeof buf === 'string') throw new Error('Не вдалося завантажити');
+  const safe = filename.replace(/[^\w.\-() ]+/g, '_') || `file_${id}`;
+  const file = new File(Paths.cache, safe);
+  try {
+    file.delete();
+  } catch {
+    // Not there yet.
+  }
+  file.create();
+  file.write(new Uint8Array(buf));
+  if (!(await Sharing.isAvailableAsync())) throw new Error('Шерінг недоступний на цьому пристрої');
+  await Sharing.shareAsync(file.uri);
+}
+
 /** Downloads a photo to a data URI, caching it in the archive. */
 export async function loadPhoto(peer: string, id: number): Promise<string | null> {
   const cached = await getPhoto(peer, id);

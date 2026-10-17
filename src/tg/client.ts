@@ -180,18 +180,50 @@ export async function sendText(entity: any, text: string, replyTo?: number) {
   return msg;
 }
 
-/** Sends a photo from a local file uri (expo-image-picker result). */
-export async function sendPhoto(entity: any, uri: string, caption: string, replyTo?: number) {
+export type SendFileOpts = {
+  caption?: string;
+  replyTo?: number;
+  name?: string;
+  mimeType?: string;
+  voiceNote?: boolean;
+  videoNote?: boolean;
+  forceDocument?: boolean;
+};
+
+/** Reads a local file uri into a GramJS upload and sends it. */
+export async function sendFileFromUri(entity: any, uri: string, opts: SendFileOpts = {}) {
   const { CustomFile } = await import('telegram/client/uploads');
   const { File } = await import('expo-file-system');
   const bytes = await new File(uri).bytes();
-  const name = uri.split('/').pop() || 'photo.jpg';
+  const name = opts.name || uri.split('/').pop() || 'file';
   const file = new CustomFile(name, bytes.length, '', Buffer.from(bytes));
   const tg = getClient();
-  const msg = await tg.sendFile(entity, { file, caption, replyTo });
+  const msg = await tg.sendFile(entity, {
+    file,
+    caption: opts.caption,
+    replyTo: opts.replyTo,
+    voiceNote: opts.voiceNote,
+    videoNote: opts.videoNote,
+    forceDocument: opts.forceDocument,
+  });
   if (getSettings().readOnSend) await tg.markAsRead(entity).catch(() => {});
   await goOffline();
   return msg;
+}
+
+export function sendPhoto(entity: any, uri: string, caption: string, replyTo?: number) {
+  return sendFileFromUri(entity, uri, { caption, replyTo, name: uri.split('/').pop() || 'photo.jpg' });
+}
+
+export function sendVoice(entity: any, uri: string, replyTo?: number) {
+  return sendFileFromUri(entity, uri, { voiceNote: true, name: 'voice.m4a', mimeType: 'audio/m4a', replyTo });
+}
+
+/** Forwards messages by id from one chat to another. */
+export async function forwardTo(toEntity: any, fromEntity: any, ids: number[]) {
+  const msgs = await getClient().forwardMessages(toEntity, { messages: ids, fromPeer: fromEntity });
+  await goOffline();
+  return msgs;
 }
 
 export async function editOwnMessage(entity: any, id: number, text: string) {

@@ -12,6 +12,7 @@ import { peerKey, toStored } from './convert';
 import { entities, rememberEntities } from './entities';
 import { getSettings } from './settings';
 import { RNWebSocket } from './socket';
+import { parseStatus, recordStatus } from './status';
 
 export type Credentials = { apiId: number; apiHash: string };
 
@@ -198,6 +199,10 @@ async function handleDeleted(ids: number[], peer: string | null) {
 }
 
 async function handleUpdate(update: Api.TypeUpdate) {
+  if (update instanceof Api.UpdateUserStatus) {
+    recordStatus(update.userId.toString(), parseStatus(update.status));
+    return;
+  }
   if (update instanceof Api.UpdateDeleteMessages) {
     await handleDeleted(update.messages, null);
   } else if (update instanceof Api.UpdateDeleteChannelMessages) {

@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 're
 
 import { archiveStats, clearArchive } from '../tg/archive';
 import { logout } from '../tg/client';
+import { clearStatusHistory } from '../tg/status';
 import {
   setFullGhost,
   setSetting,
@@ -44,6 +45,7 @@ export default function Settings() {
         style: 'destructive',
         onPress: async () => {
           await clearArchive();
+          clearStatusHistory();
           setStats({ total: 0, deleted: 0, edits: 0 });
         },
       },

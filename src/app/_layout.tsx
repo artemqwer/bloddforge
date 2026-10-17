@@ -21,6 +21,9 @@ export default function RootLayout() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="chats" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[peer]" options={{ headerShown: false }} />
+        <Stack.Screen name="search" options={{ headerShown: false }} />
+        <Stack.Screen name="contacts" options={{ title: 'Контакти' }} />
+        <Stack.Screen name="profile/[peer]" options={{ title: 'Профіль' }} />
         <Stack.Screen name="settings" options={{ title: 'Налаштування' }} />
         <Stack.Screen name="deleted" options={{ title: 'Видалені повідомлення' }} />
       </Stack>

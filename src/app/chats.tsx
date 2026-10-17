@@ -69,6 +69,12 @@ export default function Chats() {
       <View style={styles.header}>
         <Text style={styles.title}>AyuGram</Text>
         <View style={styles.headerActions}>
+          <Pressable onPress={() => router.push('/search')} hitSlop={10}>
+            <Text style={styles.headerIcon}>🔍</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/contacts')} hitSlop={10}>
+            <Text style={styles.headerIcon}>👥</Text>
+          </Pressable>
           <Pressable onPress={() => router.push('/deleted')} hitSlop={10}>
             <Text style={styles.headerIcon}>🗑</Text>
           </Pressable>

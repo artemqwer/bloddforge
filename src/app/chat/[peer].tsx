@@ -141,9 +141,15 @@ export default function Chat() {
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {title}
-        </Text>
+        <Pressable
+          style={{ flex: 1 }}
+          disabled={peer.startsWith('-')}
+          onPress={() => router.push({ pathname: '/profile/[peer]', params: { peer, title } })}
+        >
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {title}
+          </Text>
+        </Pressable>
         <Pressable onPress={onEyePress} hitSlop={10}>
           <Text style={styles.eye}>👁</Text>
         </Pressable>

@@ -2,6 +2,7 @@ import { BlurView } from 'expo-blur';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Platform, StyleProp, View, ViewStyle } from 'react-native';
 
+import { useSettings } from '../tg/settings';
 import { theme } from './theme';
 
 const liquid = isLiquidGlassAvailable();
@@ -20,15 +21,17 @@ type GlassProps = {
  * and to a solid elevated colour on web.
  */
 export function Glass({ style, children, variant = 'regular', tint }: GlassProps) {
+  const { reduceEffects } = useSettings();
+  // Economy mode (or web): a cheap solid surface instead of a live blur/glass layer.
+  if (reduceEffects || Platform.OS === 'web') {
+    return <View style={[{ backgroundColor: theme.glassFallback }, style]}>{children}</View>;
+  }
   if (liquid) {
     return (
       <GlassView style={style} glassEffectStyle={variant} tintColor={tint}>
         {children}
       </GlassView>
     );
-  }
-  if (Platform.OS === 'web') {
-    return <View style={[{ backgroundColor: theme.glassFallback }, style]}>{children}</View>;
   }
   return (
     <BlurView

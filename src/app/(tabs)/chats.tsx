@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -102,13 +102,17 @@ export default function Chats() {
           }
           renderItem={({ item }) => <Row item={item} />}
           contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+          removeClippedSubviews
+          initialNumToRender={12}
+          maxToRenderPerBatch={10}
+          windowSize={9}
         />
       )}
     </View>
   );
 }
 
-function Row({ item }: { item: DialogItem }) {
+const Row = memo(function Row({ item }: { item: DialogItem }) {
   const icon =
     item.kind === 'channel' ? '📢 ' : item.kind === 'bot' ? '🤖 ' : item.kind === 'self' ? '📝 ' : '';
   return (
@@ -140,7 +144,7 @@ function Row({ item }: { item: DialogItem }) {
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },

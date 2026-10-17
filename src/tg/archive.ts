@@ -19,6 +19,7 @@ export type StoredMessage = {
   deleted: number;
   deleted_at: number | null;
   photo: string | null;
+  reactions: string | null;
 };
 
 export type EditRecord = { text: string; date: number };
@@ -43,6 +44,7 @@ db.execSync(`
     deleted INTEGER NOT NULL DEFAULT 0,
     deleted_at INTEGER,
     photo TEXT,
+    reactions TEXT,
     PRIMARY KEY (peer, id)
   );
   CREATE INDEX IF NOT EXISTS messages_deleted ON messages (deleted, deleted_at);
@@ -55,6 +57,13 @@ db.execSync(`
   );
   CREATE INDEX IF NOT EXISTS edits_msg ON edits (peer, id);
 `);
+
+// Migration: add `reactions` to databases created before it existed.
+try {
+  db.execSync('ALTER TABLE messages ADD COLUMN reactions TEXT');
+} catch {
+  // Column already exists.
+}
 
 export type NewStoredMessage = Omit<StoredMessage, 'deleted' | 'deleted_at' | 'photo'>;
 
@@ -86,14 +95,15 @@ export async function saveMessages(rows: NewStoredMessage[]): Promise<NewStoredM
         }
       }
       await db.runAsync(
-        `INSERT INTO messages (peer, id, is_channel, chat_title, sender_id, sender_name, out, text, media, date, edit_date, reply_to)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO messages (peer, id, is_channel, chat_title, sender_id, sender_name, out, text, media, date, edit_date, reply_to, reactions)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (peer, id) DO UPDATE SET
            chat_title = COALESCE(excluded.chat_title, chat_title),
            sender_name = COALESCE(excluded.sender_name, sender_name),
            text = excluded.text,
            media = excluded.media,
-           edit_date = excluded.edit_date`,
+           edit_date = excluded.edit_date,
+           reactions = excluded.reactions`,
         row.peer,
         row.id,
         row.is_channel,
@@ -106,6 +116,7 @@ export async function saveMessages(rows: NewStoredMessage[]): Promise<NewStoredM
         row.date,
         row.edit_date,
         row.reply_to,
+        row.reactions,
       );
     }
   });
@@ -207,6 +218,10 @@ export async function archiveStats() {
 
 export async function clearArchive() {
   await db.execAsync('DELETE FROM messages; DELETE FROM edits;');
+}
+
+export function updateReactions(peer: string, id: number, reactions: string | null) {
+  return db.runAsync('UPDATE messages SET reactions = ? WHERE peer = ? AND id = ?', reactions, peer, id);
 }
 
 /** Removes messages you deleted yourself, so they don't show up as "deleted by someone". */

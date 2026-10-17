@@ -1,3 +1,4 @@
+import { Buffer } from 'buffer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { AppState } from 'react-native';
@@ -7,8 +8,8 @@ import { Raw } from 'telegram/events/Raw';
 import { LogLevel } from 'telegram/extensions/Logger';
 import { StringSession } from 'telegram/sessions';
 
-import { markDeleted, saveMessages, type StoredMessage, type NewStoredMessage } from './archive';
-import { peerKey, toStored } from './convert';
+import { markDeleted, saveMessages, updateReactions, type StoredMessage, type NewStoredMessage } from './archive';
+import { peerKey, reactionSummaryFromObj, toStored } from './convert';
 import { entities, rememberEntities } from './entities';
 import { getSettings } from './settings';
 import { RNWebSocket } from './socket';
@@ -19,7 +20,8 @@ export type Credentials = { apiId: number; apiHash: string };
 export type ChatEvent =
   | { type: 'new'; message: NewStoredMessage }
   | { type: 'edited'; message: NewStoredMessage }
-  | { type: 'deleted'; messages: StoredMessage[] };
+  | { type: 'deleted'; messages: StoredMessage[] }
+  | { type: 'reactions'; peer: string; id: number; reactions: string | null };
 
 const SESSION_KEY = 'tg-session';
 const CREDS_KEY = 'tg-creds';
@@ -178,6 +180,45 @@ export async function sendText(entity: any, text: string, replyTo?: number) {
   return msg;
 }
 
+/** Sends a photo from a local file uri (expo-image-picker result). */
+export async function sendPhoto(entity: any, uri: string, caption: string, replyTo?: number) {
+  const { CustomFile } = await import('telegram/client/uploads');
+  const { File } = await import('expo-file-system');
+  const bytes = await new File(uri).bytes();
+  const name = uri.split('/').pop() || 'photo.jpg';
+  const file = new CustomFile(name, bytes.length, '', Buffer.from(bytes));
+  const tg = getClient();
+  const msg = await tg.sendFile(entity, { file, caption, replyTo });
+  if (getSettings().readOnSend) await tg.markAsRead(entity).catch(() => {});
+  await goOffline();
+  return msg;
+}
+
+export async function editOwnMessage(entity: any, id: number, text: string) {
+  const msg = await getClient().editMessage(entity, { message: id, text });
+  await goOffline();
+  return msg;
+}
+
+/** Deletes your own messages. `revoke` also removes them for everyone. */
+export async function deleteOwnMessages(entity: any, ids: number[], revoke = true) {
+  await getClient().deleteMessages(entity, ids, { revoke });
+  await goOffline();
+}
+
+/** Toggles a reaction on a message. Passing an empty string clears your reaction. */
+export async function reactTo(entity: any, id: number, emoticon: string | null) {
+  const tg = getClient();
+  await tg.invoke(
+    new Api.messages.SendReaction({
+      peer: entity,
+      msgId: id,
+      reaction: emoticon ? [new Api.ReactionEmoji({ emoticon })] : undefined,
+    }),
+  );
+  await goOffline();
+}
+
 // ---------------------------------------------------------------------------
 // Update handling: archive everything we see, catch deletions and edits.
 
@@ -201,6 +242,13 @@ async function handleDeleted(ids: number[], peer: string | null) {
 async function handleUpdate(update: Api.TypeUpdate) {
   if (update instanceof Api.UpdateUserStatus) {
     recordStatus(update.userId.toString(), parseStatus(update.status));
+    return;
+  }
+  if (update instanceof Api.UpdateMessageReactions) {
+    const peer = peerKey(update.peer);
+    const summary = reactionSummaryFromObj(update.reactions);
+    await updateReactions(peer, update.msgId, summary);
+    emit({ type: 'reactions', peer, id: update.msgId, reactions: summary });
     return;
   }
   if (update instanceof Api.UpdateDeleteMessages) {

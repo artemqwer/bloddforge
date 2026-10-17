@@ -73,6 +73,10 @@ export default function Contacts() {
         );
       }}
           contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+          removeClippedSubviews
+          initialNumToRender={14}
+          maxToRenderPerBatch={12}
+          windowSize={9}
         />
       )}
     </View>

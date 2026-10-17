@@ -28,7 +28,13 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "AyuGram використовує доступ до фото, щоб ви могли надсилати зображення у чати."
+        }
+      ]
     ]
   }
 }

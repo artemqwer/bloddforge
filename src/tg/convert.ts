@@ -35,6 +35,22 @@ export function mediaKind(msg: Api.Message): string | null {
   return 'other';
 }
 
+/** Compact reaction summary, e.g. "👍3 ❤️1". A "*" prefix marks reactions you chose. */
+export function reactionSummaryFromObj(r?: Api.TypeMessageReactions): string | null {
+  if (!r || !(r instanceof Api.MessageReactions) || !r.results?.length) return null;
+  const parts: string[] = [];
+  for (const rc of r.results) {
+    const emo = rc.reaction instanceof Api.ReactionEmoji ? rc.reaction.emoticon : '⭐';
+    const mine = rc.chosenOrder !== undefined && rc.chosenOrder !== null ? '*' : '';
+    parts.push(`${mine}${emo}${rc.count}`);
+  }
+  return parts.join(' ');
+}
+
+export function reactionSummary(msg: Api.Message): string | null {
+  return reactionSummaryFromObj(msg.reactions);
+}
+
 export function mediaLabel(media: string | null): string {
   if (!media) return '';
   const [kind, ...rest] = media.split(':');
@@ -109,5 +125,6 @@ export function toStored(msg: Api.Message | Api.MessageService): NewStoredMessag
     date: msg.date ?? 0,
     edit_date: isService ? null : msg.editDate ?? null,
     reply_to: msg.replyTo instanceof Api.MessageReplyHeader ? msg.replyTo.replyToMsgId ?? null : null,
+    reactions: isService ? null : reactionSummary(msg),
   };
 }

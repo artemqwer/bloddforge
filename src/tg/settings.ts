@@ -18,6 +18,10 @@ export type GhostSettings = {
   saveEdits: boolean;
   /** Show kept deleted messages inside chats (otherwise only in the log). */
   showDeletedInChat: boolean;
+  /** Economy mode: drop glass/blur for solid surfaces — much cheaper on old devices. */
+  reduceEffects: boolean;
+  /** Load photos only when tapped, instead of automatically in the chat stream. */
+  manualPhotoLoad: boolean;
 };
 
 const KEY = 'ghost-settings';
@@ -31,6 +35,8 @@ const defaults: GhostSettings = {
   saveDeleted: true,
   saveEdits: true,
   showDeletedInChat: true,
+  reduceEffects: false,
+  manualPhotoLoad: false,
 };
 
 let current: GhostSettings = defaults;

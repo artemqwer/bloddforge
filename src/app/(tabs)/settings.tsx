@@ -94,6 +94,21 @@ export default function Settings() {
         />
       </Section>
 
+      <Section title="ВИГЛЯД І ПРОДУКТИВНІСТЬ">
+        <Toggle
+          k="reduceEffects"
+          label="Економний режим"
+          hint="Вимикає скло/блюр — помітно легше для старих пристроїв (iPhone 7 тощо)"
+          s={s}
+        />
+        <Toggle
+          k="manualPhotoLoad"
+          label="Завантажувати фото вручну"
+          hint="Фото в чаті підвантажуються лише по натисканню — економить трафік і пам'ять"
+          s={s}
+        />
+      </Section>
+
       <Section title="СТАТИСТИКА">
         <View style={styles.statsRow}>
           <Stat label="Повідомлень" value={stats.total} />

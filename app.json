@@ -8,6 +8,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0E1621",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.ayugram.ios"
@@ -41,7 +44,8 @@
           "microphonePermission": "AyuGram використовує мікрофон для запису голосових повідомлень."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-asset"
     ]
   }
 }

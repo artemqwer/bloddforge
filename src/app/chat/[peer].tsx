@@ -22,6 +22,7 @@ import { entityFor } from '../../tg/dialogs';
 import { fromNewExport as fromNew, loadHistory, loadPhoto, type ChatMessage } from '../../tg/history';
 import { useSettings } from '../../tg/settings';
 import { dateSeparator, formatTime, sameDay } from '../../ui/format';
+import { Glass } from '../../ui/Glass';
 import { theme } from '../../ui/theme';
 
 type Row =
@@ -137,7 +138,7 @@ export default function Chat() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <Glass style={[styles.header, { paddingTop: insets.top }]}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Text style={styles.back}>‹</Text>
         </Pressable>
@@ -153,7 +154,7 @@ export default function Chat() {
         <Pressable onPress={onEyePress} hitSlop={10}>
           <Text style={styles.eye}>👁</Text>
         </Pressable>
-      </View>
+      </Glass>
 
       {loading ? (
         <ActivityIndicator color={theme.accent} style={{ marginTop: 40 }} />
@@ -180,7 +181,7 @@ export default function Chat() {
         />
       )}
 
-      <View style={[styles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
+      <Glass style={[styles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
         <TextInput
           style={styles.input}
           value={text}
@@ -192,7 +193,7 @@ export default function Chat() {
         <Pressable style={styles.send} onPress={doSend} disabled={sending}>
           <Text style={styles.sendIcon}>{sending ? '…' : '➤'}</Text>
         </Pressable>
-      </View>
+      </Glass>
     </KeyboardAvoidingView>
   );
 }
@@ -267,7 +268,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: theme.bgElevated,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.glassBorder,
     paddingHorizontal: 12,
     paddingBottom: 10,
     gap: 10,
@@ -321,7 +323,8 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    backgroundColor: theme.bgElevated,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.glassBorder,
     paddingHorizontal: 10,
     paddingTop: 8,
     gap: 8,

@@ -1,19 +1,21 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { archiveStats, clearArchive } from '../tg/archive';
-import { logout } from '../tg/client';
-import { clearStatusHistory } from '../tg/status';
+import { archiveStats, clearArchive } from '../../tg/archive';
+import { logout } from '../../tg/client';
+import { clearStatusHistory } from '../../tg/status';
 import {
   setFullGhost,
   setSetting,
   useSettings,
   type GhostSettings,
-} from '../tg/settings';
-import { theme } from '../ui/theme';
+} from '../../tg/settings';
+import { theme } from '../../ui/theme';
 
 export default function Settings() {
+  const insets = useSafeAreaInsets();
   const s = useSettings();
   const [stats, setStats] = useState({ total: 0, deleted: 0, edits: 0 });
 
@@ -53,7 +55,11 @@ export default function Settings() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 100 }}
+    >
+      <Text style={styles.screenTitle}>Налаштування</Text>
       <Section title="НЕВИДИМІСТЬ">
         <Row
           label="Повний невидимий режим"
@@ -176,6 +182,7 @@ function Stat({ label, value }: { label: string; value: number }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
+  screenTitle: { color: theme.text, fontSize: 24, fontWeight: '800', paddingHorizontal: 16, paddingBottom: 4 },
   section: { marginTop: 22 },
   sectionTitle: { color: theme.textDim, fontSize: 12, fontWeight: '700', marginLeft: 20, marginBottom: 8 },
   sectionBody: { backgroundColor: theme.card, marginHorizontal: 12, borderRadius: 12, overflow: 'hidden' },

@@ -11,12 +11,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { onChatEvent } from '../tg/client';
-import { loadDialogs, previewOf, type DialogItem } from '../tg/dialogs';
-import { isFullGhost, useSettings } from '../tg/settings';
-import { Avatar } from '../ui/Avatar';
-import { formatDay } from '../ui/format';
-import { theme } from '../ui/theme';
+import { onChatEvent } from '../../tg/client';
+import { loadDialogs, previewOf, type DialogItem } from '../../tg/dialogs';
+import { isFullGhost, useSettings } from '../../tg/settings';
+import { Avatar } from '../../ui/Avatar';
+import { formatDay } from '../../ui/format';
+import { theme } from '../../ui/theme';
 
 export default function Chats() {
   const insets = useSafeAreaInsets();
@@ -72,14 +72,8 @@ export default function Chats() {
           <Pressable onPress={() => router.push('/search')} hitSlop={10}>
             <Text style={styles.headerIcon}>🔍</Text>
           </Pressable>
-          <Pressable onPress={() => router.push('/contacts')} hitSlop={10}>
-            <Text style={styles.headerIcon}>👥</Text>
-          </Pressable>
           <Pressable onPress={() => router.push('/deleted')} hitSlop={10}>
             <Text style={styles.headerIcon}>🗑</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/settings')} hitSlop={10}>
-            <Text style={styles.headerIcon}>⚙️</Text>
           </Pressable>
         </View>
       </View>
@@ -107,7 +101,7 @@ export default function Chats() {
             />
           }
           renderItem={({ item }) => <Row item={item} />}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
         />
       )}
     </View>

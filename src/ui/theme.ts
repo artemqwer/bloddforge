@@ -18,6 +18,10 @@ export const theme = {
   danger: '#E05A6B',
   ok: '#4FB06D',
   badge: '#5CA7E4',
+  // Liquid-glass fallbacks (used when native iOS 26 glass isn't available).
+  glassTint: 'rgba(23,33,43,0.55)',
+  glassFallback: 'rgba(23,33,43,0.92)',
+  glassBorder: 'rgba(255,255,255,0.10)',
 };
 
 export const avatarColors = [

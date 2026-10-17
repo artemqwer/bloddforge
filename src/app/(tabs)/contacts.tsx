@@ -1,13 +1,15 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { loadContacts, type Contact } from '../tg/people';
-import { describeStatus, onStatusEvent, type StatusInfo } from '../tg/status';
-import { Avatar } from '../ui/Avatar';
-import { theme } from '../ui/theme';
+import { loadContacts, type Contact } from '../../tg/people';
+import { describeStatus, onStatusEvent, type StatusInfo } from '../../tg/status';
+import { Avatar } from '../../ui/Avatar';
+import { theme } from '../../ui/theme';
 
 export default function Contacts() {
+  const insets = useSafeAreaInsets();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [statuses, setStatuses] = useState<Record<string, StatusInfo>>({});
   const [loading, setLoading] = useState(true);
@@ -29,19 +31,22 @@ export default function Contacts() {
 
   const online = contacts.filter((c) => statuses[c.id]?.state === 'online').length;
 
-  if (loading) return <ActivityIndicator color={theme.accent} style={{ marginTop: 40 }} />;
-  if (error) return <Text style={styles.error}>{error}</Text>;
-
   return (
-    <FlatList
-      style={styles.container}
-      data={contacts}
-      keyExtractor={(c) => c.id}
-      ListHeaderComponent={
-        <Text style={styles.header}>
-          {contacts.length} контактів{online ? ` · ${online} онлайн` : ''}
-        </Text>
-      }
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Text style={styles.screenTitle}>Контакти</Text>
+      {loading ? (
+        <ActivityIndicator color={theme.accent} style={{ marginTop: 40 }} />
+      ) : error ? (
+        <Text style={styles.error}>{error}</Text>
+      ) : (
+        <FlatList
+          data={contacts}
+          keyExtractor={(c) => c.id}
+          ListHeaderComponent={
+            <Text style={styles.header}>
+              {contacts.length} контактів{online ? ` · ${online} онлайн` : ''}
+            </Text>
+          }
       renderItem={({ item }) => {
         const info = statuses[item.id] ?? item.status;
         const d = describeStatus(info);
@@ -67,13 +72,16 @@ export default function Contacts() {
           </Pressable>
         );
       }}
-      contentContainerStyle={{ paddingBottom: 30 }}
-    />
+          contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
+  screenTitle: { color: theme.text, fontSize: 24, fontWeight: '800', paddingHorizontal: 16, paddingVertical: 10 },
   header: { color: theme.textDim, fontSize: 13, paddingHorizontal: 16, paddingVertical: 12 },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, gap: 12 },
   body: { flex: 1 },

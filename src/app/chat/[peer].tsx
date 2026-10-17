@@ -26,6 +26,7 @@ import {
   markRead,
   onChatEvent,
   reactTo,
+  sendDocument,
   sendFileFromUri,
   sendPhoto,
   sendText,
@@ -43,6 +44,7 @@ import {
 } from '../../tg/history';
 import { pickDocument, pickPhoto, pickVideo } from '../../tg/media';
 import { useSettings } from '../../tg/settings';
+import { loadRecentStickers, loadSavedGifs, thumbUri, type MediaDoc } from '../../tg/stickers';
 import { dateSeparator, formatTime, sameDay } from '../../ui/format';
 import { Glass } from '../../ui/Glass';
 import { theme } from '../../ui/theme';
@@ -72,6 +74,7 @@ export default function Chat() {
   const [attachOpen, setAttachOpen] = useState(false);
   const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [stickerPanel, setStickerPanel] = useState(false);
   const [recording, setRecording] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const loadingMore = useRef(false);
@@ -277,6 +280,16 @@ export default function Chat() {
     }
   }
 
+  async function sendSticker(doc: any) {
+    setStickerPanel(false);
+    try {
+      await sendDocument(entityFor(peer), doc, replyId());
+      setCompose(null);
+    } catch (err: any) {
+      Alert.alert('Не вдалося надіслати', String(err?.message ?? err));
+    }
+  }
+
   function onChangeText(v: string) {
     setText(v);
     if (v.length) sendTyping(entityFor(peer)).catch(() => {});
@@ -416,7 +429,17 @@ export default function Chat() {
         </View>
       )}
 
+      {stickerPanel && <StickerPanel onSend={sendSticker} />}
+
       <Glass style={[styles.inputBar, { paddingBottom: insets.bottom + 8 }]}>
+        <Pressable
+          style={styles.attach}
+          onPress={() => setStickerPanel((v) => !v)}
+          disabled={sending}
+          hitSlop={8}
+        >
+          <Text style={styles.attachIcon}>{stickerPanel ? '⌨️' : '😀'}</Text>
+        </Pressable>
         <Pressable style={styles.attach} onPress={() => setAttachOpen(true)} disabled={sending} hitSlop={8}>
           <Text style={styles.attachIcon}>📎</Text>
         </Pressable>
@@ -588,6 +611,73 @@ function ForwardPicker({
         </View>
       </View>
     </Modal>
+  );
+}
+
+function StickerPanel({ onSend }: { onSend: (doc: MediaDoc) => void }) {
+  const [tab, setTab] = useState<'stickers' | 'gifs'>('stickers');
+  const [stickers, setStickers] = useState<MediaDoc[]>([]);
+  const [gifs, setGifs] = useState<MediaDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([loadRecentStickers(), loadSavedGifs()])
+      .then(([s, g]) => {
+        setStickers(s);
+        setGifs(g);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const data = tab === 'stickers' ? stickers : gifs;
+
+  return (
+    <View style={styles.stickerPanel}>
+      <View style={styles.stickerTabs}>
+        <Pressable onPress={() => setTab('stickers')} style={styles.stickerTab}>
+          <Text style={[styles.stickerTabText, tab === 'stickers' && styles.stickerTabActive]}>Стікери</Text>
+        </Pressable>
+        <Pressable onPress={() => setTab('gifs')} style={styles.stickerTab}>
+          <Text style={[styles.stickerTabText, tab === 'gifs' && styles.stickerTabActive]}>GIF</Text>
+        </Pressable>
+      </View>
+      {loading ? (
+        <ActivityIndicator color={theme.accent} style={{ marginTop: 20 }} />
+      ) : data.length === 0 ? (
+        <Text style={styles.stickerEmpty}>
+          {tab === 'stickers' ? 'Немає нещодавніх стікерів' : 'Немає збережених GIF'}
+        </Text>
+      ) : (
+        <FlatList
+          data={data}
+          horizontal={false}
+          numColumns={4}
+          keyExtractor={(d) => d.id.toString()}
+          keyboardShouldPersistTaps="handled"
+          renderItem={({ item }) => <StickerThumb doc={item} onPress={() => onSend(item)} />}
+        />
+      )}
+    </View>
+  );
+}
+
+function StickerThumb({ doc, onPress }: { doc: MediaDoc; onPress: () => void }) {
+  const [uri, setUri] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    thumbUri(doc).then((u) => alive && setUri(u));
+    return () => {
+      alive = false;
+    };
+  }, [doc]);
+  return (
+    <Pressable style={styles.stickerCell} onPress={onPress}>
+      {uri ? (
+        <Image source={{ uri }} style={styles.stickerImage} resizeMode="contain" />
+      ) : (
+        <View style={styles.stickerImage} />
+      )}
+    </Pressable>
   );
 }
 
@@ -926,4 +1016,12 @@ const styles = StyleSheet.create({
   pickerName: { color: theme.text, fontSize: 15 },
   viewer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' },
   viewerImage: { width: '100%', height: '100%' },
+  stickerPanel: { height: 260, backgroundColor: theme.bgElevated, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.glassBorder },
+  stickerTabs: { flexDirection: 'row', paddingHorizontal: 12, paddingTop: 8, gap: 16 },
+  stickerTab: { paddingVertical: 6 },
+  stickerTabText: { color: theme.textDim, fontSize: 14, fontWeight: '600' },
+  stickerTabActive: { color: theme.accent },
+  stickerEmpty: { color: theme.textDim, textAlign: 'center', marginTop: 30, fontSize: 13 },
+  stickerCell: { flex: 1 / 4, aspectRatio: 1, padding: 6, alignItems: 'center', justifyContent: 'center' },
+  stickerImage: { width: '100%', height: '100%', borderRadius: 6 },
 });

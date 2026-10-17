@@ -219,6 +219,16 @@ export function sendVoice(entity: any, uri: string, replyTo?: number) {
   return sendFileFromUri(entity, uri, { voiceNote: true, name: 'voice.m4a', mimeType: 'audio/m4a', replyTo });
 }
 
+/** Sends an existing document (sticker or saved GIF) by reference. */
+export async function sendDocument(entity: any, doc: Api.Document, replyTo?: number) {
+  const { utils } = await import('telegram');
+  const media = utils.getInputMedia(doc);
+  const tg = getClient();
+  const msg = await tg.sendFile(entity, { file: media as any, replyTo });
+  await goOffline();
+  return msg;
+}
+
 /** Forwards messages by id from one chat to another. */
 export async function forwardTo(toEntity: any, fromEntity: any, ids: number[]) {
   const msgs = await getClient().forwardMessages(toEntity, { messages: ids, fromPeer: fromEntity });

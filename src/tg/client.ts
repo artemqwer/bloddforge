@@ -9,7 +9,7 @@ import { LogLevel } from 'telegram/extensions/Logger';
 import { StringSession } from 'telegram/sessions';
 
 import { markDeleted, saveMessages, updateReactions, type StoredMessage, type NewStoredMessage } from './archive';
-import { peerKey, reactionSummaryFromObj, toStored } from './convert';
+import { displayName, peerKey, reactionSummaryFromObj, toStored } from './convert';
 import { entities, rememberEntities } from './entities';
 import { getSettings } from './settings';
 import { RNWebSocket } from './socket';
@@ -21,7 +21,8 @@ export type ChatEvent =
   | { type: 'new'; message: NewStoredMessage }
   | { type: 'edited'; message: NewStoredMessage }
   | { type: 'deleted'; messages: StoredMessage[] }
-  | { type: 'reactions'; peer: string; id: number; reactions: string | null };
+  | { type: 'reactions'; peer: string; id: number; reactions: string | null }
+  | { type: 'typing'; peer: string; who: string | null };
 
 const SESSION_KEY = 'tg-session';
 const CREDS_KEY = 'tg-creds';
@@ -284,6 +285,20 @@ async function handleDeleted(ids: number[], peer: string | null) {
 async function handleUpdate(update: Api.TypeUpdate) {
   if (update instanceof Api.UpdateUserStatus) {
     recordStatus(update.userId.toString(), parseStatus(update.status));
+    return;
+  }
+  if (update instanceof Api.UpdateUserTyping) {
+    emit({ type: 'typing', peer: update.userId.toString(), who: null });
+    return;
+  }
+  if (update instanceof Api.UpdateChatUserTyping) {
+    const who = entities.get(peerKey(update.fromId));
+    emit({ type: 'typing', peer: `-${update.chatId}`, who: who ? displayName(who) : null });
+    return;
+  }
+  if (update instanceof Api.UpdateChannelUserTyping) {
+    const who = entities.get(peerKey(update.fromId));
+    emit({ type: 'typing', peer: `-100${update.channelId}`, who: who ? displayName(who) : null });
     return;
   }
   if (update instanceof Api.UpdateMessageReactions) {

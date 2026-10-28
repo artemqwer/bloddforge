@@ -83,6 +83,22 @@ export async function loadHistory(
   return { messages: result, done: live.length < PAGE };
 }
 
+/** Returns the latest pinned message's text/label for a chat, or null. */
+export async function loadPinned(peer: string): Promise<{ id: number; text: string } | null> {
+  const entity = entityFor(peer);
+  if (!entity) return null;
+  try {
+    const msgs = await getClient().getMessages(entity, { limit: 1, filter: new Api.InputMessagesFilterPinned() });
+    const m = msgs[0];
+    if (!m) return null;
+    const stored = toStored(m);
+    const text = stored ? stored.text || (stored.media ? stored.media.split(':')[0] : '') : '';
+    return { id: m.id, text: text || 'повідомлення' };
+  } catch {
+    return null;
+  }
+}
+
 /** Downloads a message's media to a cache file and opens the iOS share sheet. */
 export async function downloadAndShare(peer: string, id: number, filename: string): Promise<void> {
   const raw = rawMessages.get(rawKey(peer, id));
